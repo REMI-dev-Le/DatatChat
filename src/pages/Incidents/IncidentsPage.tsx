@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { incidentsClient } from '../../api/incidentsClient.ts';
 import type { IncidentPriority } from '../../Types/incidents.ts';
+import { ApiError } from '../../api/http';
 
 export const IncidentsPage: React.FC = () => {
   const qc = useQueryClient();
@@ -24,19 +25,22 @@ export const IncidentsPage: React.FC = () => {
   });
 
   return (
-    <div style={{ padding: '1.5rem' }}>
+    <div style={{ padding: "1.5rem" }}>
       <h1>Incidents</h1>
 
-      <div style={{ border: '1px solid #ddd', padding: '12px', maxWidth: 520 }}>
+      <div style={{ border: "1px solid #ddd", padding: "12px", maxWidth: 520 }}>
         <h3>Create Incident</h3>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
             style={{ flex: 1 }}
           />
-          <select value={priority} onChange={(e) => setPriority(e.target.value as IncidentPriority)}>
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as IncidentPriority)}
+          >
             <option value="P1">P1</option>
             <option value="P2">P2</option>
             <option value="P3">P3</option>
@@ -45,19 +49,37 @@ export const IncidentsPage: React.FC = () => {
             onClick={() => create.mutate({ title, priority })}
             disabled={create.isPending || !title.trim()}
           >
-            {create.isPending ? 'Saving…' : 'Create'}
+            {create.isPending ? "Saving…" : "Create"}
           </button>
         </div>
-        {create.isError && <p style={{ color: 'red' }}>Error: {(create.error as Error).message}</p>}
+        {create.isError &&
+          (() => {
+            const err = create.error as ApiError;
+            const titleErrors = err.problem?.errors?.Title;
+            return (
+              <div style={{ color: "red" }}>
+                <p>{err.message}</p>
+                {titleErrors?.length ? (
+                  <ul>
+                    {titleErrors.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })()}
       </div>
 
-      <hr style={{ margin: '16px 0' }} />
+      <hr style={{ margin: "16px 0" }} />
 
       {list.isLoading && <p>Loading…</p>}
-      {list.isError && <p style={{ color: 'red' }}>Error: {(list.error as Error).message}</p>}
+      {list.isError && (
+        <p style={{ color: "red" }}>Error: {(list.error as Error).message}</p>
+      )}
 
       {list.data && (
-        <table style={{ borderCollapse: 'collapse', marginTop: 8 }}>
+        <table style={{ borderCollapse: "collapse", marginTop: 8 }}>
           <thead>
             <tr>
               <th style={th}>ID</th>
