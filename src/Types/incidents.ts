@@ -13,3 +13,9 @@ export type CreateIncidentRequest = {
   title: string;
   priority: IncidentPriority;
 };
+
+export type UpdateIncidentRequest = {
+  title: string;
+  status: IncidentStatus;
+  priority: IncidentPriority;
+};

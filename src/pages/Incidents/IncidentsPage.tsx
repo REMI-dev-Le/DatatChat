@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { incidentsClient } from '../../api/incidentsClient.ts';
 import type { IncidentPriority } from '../../Types/incidents.ts';
 import { ApiError } from '../../api/http';
+import { Link } from 'react-router-dom';
 
 export const IncidentsPage: React.FC = () => {
   const qc = useQueryClient();
@@ -92,7 +93,7 @@ export const IncidentsPage: React.FC = () => {
           <tbody>
             {list.data.map((x) => (
               <tr key={x.id}>
-                <td style={td}>{x.id}</td>
+                <td style={td}><Link to={`/incidents/${x.id}`}>{x.title}</Link></td>
                 <td style={td}>{x.title}</td>
                 <td style={td}>{x.status}</td>
                 <td style={td}>{x.priority}</td>

@@ -2,6 +2,7 @@
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
 import { StatusPage } from './pages/StatusPage';
 import { IncidentsPage } from './pages/Incidents/IncidentsPage.tsx';
+import { IncidentDetailsPage } from './pages/Incidents/IncidentDetailsPage.tsx';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/status" replace />} />
         <Route path="/status" element={<StatusPage />} />
         <Route path="/incidents" element={<IncidentsPage />} />
+        <Route path="/incidents/:id" element={<IncidentDetailsPage />} />
       </Routes>
     </div>
   );
