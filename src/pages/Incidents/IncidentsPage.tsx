@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { incidentsClient } from '../../api/incidentsClient.ts';
-import type { IncidentPriority } from '../../Types/incidents.ts';
+import type { IncidentDto, IncidentPriority } from '../../Types/incidents.ts';
 import { ApiError } from '../../api/http';
 import { Link } from 'react-router-dom';
 
@@ -24,6 +24,27 @@ export const IncidentsPage: React.FC = () => {
       await qc.invalidateQueries({ queryKey: ['incidents'] });
     },
   });
+
+  const del = useMutation({
+  mutationFn: (id: number) => incidentsClient.delete(id),
+  onMutate: async (id: number) => {
+    await qc.cancelQueries({ queryKey: ['incidents'] });
+    const prev = qc.getQueryData<IncidentDto[]>(['incidents']);
+
+    // optimistic remove
+    qc.setQueryData<IncidentDto[]>(['incidents'], (old) => (old ?? []).filter(x => x.id !== id));
+
+    return { prev };
+  },
+  onError: (_err, _id, ctx) => {
+    // rollback
+    if (ctx?.prev) qc.setQueryData(['incidents'], ctx.prev);
+  },
+  onSettled: async () => {
+    // always re-sync
+    await qc.invalidateQueries({ queryKey: ['incidents'] });
+  }
+});
 
   return (
     <div style={{ padding: "1.5rem" }}>
@@ -98,6 +119,16 @@ export const IncidentsPage: React.FC = () => {
                 <td style={td}>{x.status}</td>
                 <td style={td}>{x.priority}</td>
                 <td style={td}>{new Date(x.updatedUtc).toISOString()}</td>
+                <td style={td}>
+        <button
+          onClick={() => {
+            if (window.confirm("Delete this incident?")) del.mutate(x.id);
+          }}
+          disabled={del.isPending}
+        >
+          Delete
+        </button>
+      </td>
               </tr>
             ))}
           </tbody>

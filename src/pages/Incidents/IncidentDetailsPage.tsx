@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { incidentsClient } from '../../api/incidentsClient';
 import type { IncidentPriority, IncidentStatus } from '../../Types/incidents';
@@ -21,6 +21,7 @@ export const IncidentDetailsPage: React.FC = () => {
   const incidentId = validId ? parsedId : 0;
 
   const qc = useQueryClient();
+  const nav = useNavigate();
 
   // ✅ Hook always called (not conditional)
   const q = useQuery({
@@ -67,6 +68,14 @@ export const IncidentDetailsPage: React.FC = () => {
       await qc.invalidateQueries({ queryKey: ['incident', incidentId] });
     },
   });
+
+  const del = useMutation({
+  mutationFn: () => incidentsClient.delete(incidentId),
+  onSuccess: async () => {
+    await qc.invalidateQueries({ queryKey: ['incidents'] });
+    nav('/incidents');
+  },
+});
 
   // ✅ Early returns happen AFTER hooks (allowed)
   if (!validId) return <div style={{ padding: 16, color: 'red' }}>Invalid incident id.</div>;
@@ -122,6 +131,10 @@ export const IncidentDetailsPage: React.FC = () => {
 
           <button onClick={() => update.mutate()} disabled={update.isPending || !current.title.trim()}>
             {update.isPending ? 'Saving…' : 'Save'}
+          </button>
+          <button onClick={() => {if (window.confirm('Delete this incident?')) del.mutate();}}
+            disabled={del.isPending}>
+            {del.isPending ? 'Deleting…' : 'Delete'}
           </button>
 
           {update.isSuccess && <p style={{ color: 'green' }}>Saved!</p>}

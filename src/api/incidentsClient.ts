@@ -10,4 +10,8 @@ export const incidentsClient = {
 
   update: (id: number, req: UpdateIncidentRequest) =>
     http<IncidentDto>(`/api/incidents/${id}`, { method: 'PUT', body: JSON.stringify(req) }),
+  
+  delete: (id: number) =>
+  http<void>(`/api/incidents/${id}`, { method: 'DELETE' }),
+
 };
