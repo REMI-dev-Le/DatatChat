@@ -1,9 +1,24 @@
 import type { IncidentDto, CreateIncidentRequest, UpdateIncidentRequest  } from '../Types/incidents';
+import type { PagedResult } from '../Types/paging.ts';
 import { http } from './http';
 //const API_BASE = "http://localhost:5084"; // or https://localhost:7169 if that's your API
+export type IncidentsListParams = {
+  page: number;
+  pageSize: number;
+  sortBy: 'updatedUtc' | 'priority' | 'status' | 'title';
+  sortDir: 'asc' | 'desc';
+};
 
 export const incidentsClient = {
-   list: () => http<IncidentDto[]>('/api/incidents'),
+     list: (p: IncidentsListParams) => {
+    const qs = new URLSearchParams({
+      page: String(p.page),
+      pageSize: String(p.pageSize),
+      sortBy: p.sortBy,
+      sortDir: p.sortDir,
+    });
+    return http<PagedResult<IncidentDto>>(`/api/incidents?${qs.toString()}`);
+  },
   getById: (id: number) => http<IncidentDto>(`/api/incidents/${id}`),
   create: (req: CreateIncidentRequest) =>
     http<IncidentDto>('/api/incidents', { method: 'POST', body: JSON.stringify(req) }),
