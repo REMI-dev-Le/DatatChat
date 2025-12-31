@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { incidentsClient } from '../../api/incidentsClient';
-import type { IncidentDto, IncidentPriority } from '../../Types/incidents';
-import type { PagedResult } from '../../Types/paging';
-import { ApiError } from '../../api/http';
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { incidentsClient } from "../../api/incidentsClient";
+import type { IncidentDto, IncidentPriority } from "../../Types/incidents";
+import type { PagedResult } from "../../Types/paging";
+import { ApiError } from "../../api/http";
 
-const SORT_BY = ['updatedUtc', 'priority', 'status', 'title'] as const;
+const SORT_BY = ["updatedUtc", "priority", "status", "title"] as const;
 type SortBy = (typeof SORT_BY)[number];
 
-const SORT_DIR = ['asc', 'desc'] as const;
+const SORT_DIR = ["asc", "desc"] as const;
 type SortDir = (typeof SORT_DIR)[number];
 
 function isSortBy(v: string): v is SortBy {
@@ -19,37 +24,83 @@ function isSortDir(v: string): v is SortDir {
   return (SORT_DIR as readonly string[]).includes(v);
 }
 
+// Filters
+type FilterStatus = "" | "Open" | "InProgress" | "Closed";
+type FilterPriority = "" | IncidentPriority;
+
 export const IncidentsPage: React.FC = () => {
   const qc = useQueryClient();
 
-  const [title, setTitle] = useState('');
-  const [priority, setPriority] = useState<IncidentPriority>('P3');
+  // Create form state
+  const [title, setTitle] = useState("");
+  const [createPriority, setCreatePriority] = useState<IncidentPriority>("P3");
 
+  // List controls
   const [page, setPage] = useState(1);
   const [pageSize] = useState(5);
-  const [sortBy, setSortBy] = useState<SortBy>('updatedUtc');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
-  const incidentsKey = ['incidents', page, pageSize, sortBy, sortDir] as const;
+  const [sortBy, setSortBy] = useState<SortBy>("updatedUtc");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("");
+  const [filterPriority, setFilterPriority] = useState<FilterPriority>("");
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
+
+  const incidentsKey = [
+    "incidents",
+    page,
+    pageSize,
+    sortBy,
+    sortDir,
+    filterStatus,
+    filterPriority,
+    debouncedSearch,
+  ] as const;
 
   const list = useQuery<PagedResult<IncidentDto>, ApiError>({
     queryKey: incidentsKey,
-    queryFn: () => incidentsClient.list({ page, pageSize, sortBy, sortDir }),
-    placeholderData: keepPreviousData, // ✅ v5 replacement for keepPreviousData: true
+    queryFn: () =>
+      incidentsClient.list({
+        page,
+        pageSize,
+        sortBy,
+        sortDir,
+        status: filterStatus || undefined,
+        priority: filterPriority || undefined,
+        q: debouncedSearch || undefined,
+      }),
+    placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
   });
 
-  const create = useMutation<IncidentDto, ApiError, { title: string; priority: IncidentPriority }>({
+  const create = useMutation<
+    IncidentDto,
+    ApiError,
+    { title: string; priority: IncidentPriority }
+  >({
     mutationFn: incidentsClient.create,
     onSuccess: async () => {
-      setTitle('');
-      setPriority('P3');
+      setTitle("");
+      setCreatePriority("P3");
       setPage(1);
-      await qc.invalidateQueries({ queryKey: ['incidents'] }); // prefix invalidation
+      await qc.invalidateQueries({ queryKey: ["incidents"] });
     },
   });
 
-  const del = useMutation<void, ApiError, number, { prev?: PagedResult<IncidentDto> }>({
+  const del = useMutation<
+    void,
+    ApiError,
+    number,
+    { prev?: PagedResult<IncidentDto> }
+  >({
     mutationFn: (id: number) => incidentsClient.delete(id),
 
     onMutate: async (id: number) => {
@@ -75,35 +126,44 @@ export const IncidentsPage: React.FC = () => {
     },
 
     onSettled: async () => {
-      await qc.invalidateQueries({ queryKey: ['incidents'] });
+      await qc.invalidateQueries({ queryKey: ["incidents"] });
     },
   });
 
   return (
-    <div style={{ padding: '1.5rem' }}>
+    <div style={{ padding: "1.5rem" }}>
       <h1>Incidents</h1>
 
-      <div style={{ border: '1px solid #ddd', padding: 12, maxWidth: 520 }}>
+      {/* CREATE */}
+      <div style={{ border: "1px solid #ddd", padding: 12, maxWidth: 520 }}>
         <h3>Create Incident</h3>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
             style={{ flex: 1 }}
           />
-          <select value={priority} onChange={(e) => setPriority(e.target.value as IncidentPriority)}>
+          <select
+            value={createPriority}
+            onChange={(e) =>
+              setCreatePriority(e.target.value as IncidentPriority)
+            }
+          >
             <option value="P1">P1</option>
             <option value="P2">P2</option>
             <option value="P3">P3</option>
           </select>
-          <button onClick={() => create.mutate({ title, priority })} disabled={create.isPending || !title.trim()}>
-            {create.isPending ? 'Saving…' : 'Create'}
+          <button
+            onClick={() => create.mutate({ title, priority: createPriority })}
+            disabled={create.isPending || !title.trim()}
+          >
+            {create.isPending ? "Saving…" : "Create"}
           </button>
         </div>
 
         {create.isError && (
-          <div style={{ color: 'red' }}>
+          <div style={{ color: "red" }}>
             <p>{create.error.message}</p>
             {create.error.problem?.errors?.Title?.length ? (
               <ul>
@@ -116,20 +176,79 @@ export const IncidentsPage: React.FC = () => {
         )}
       </div>
 
-      <hr style={{ margin: '16px 0' }} />
+      <hr style={{ margin: "16px 0" }} />
 
+      {/* LIST STATES */}
       {list.isLoading && <p>Loading…</p>}
-      {list.isError && <p style={{ color: 'red' }}>Error: {list.error.message}</p>}
+      {list.isError && (
+        <p style={{ color: "red" }}>Error: {list.error.message}</p>
+      )}
 
+      {/* FILTERS + SORT + PAGING */}
       {list.data && (
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', margin: '12px 0' }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            margin: "12px 0",
+            flexWrap: "wrap",
+          }}
+        >
+          <label>
+            Status:&nbsp;
+            <select
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value as FilterStatus);
+                setPage(1);
+              }}
+            >
+              <option value="">All</option>
+              <option value="Open">Open</option>
+              <option value="InProgress">InProgress</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </label>
+
+          <label>
+            Priority:&nbsp;
+            <select
+              value={filterPriority}
+              onChange={(e) => {
+                setFilterPriority(e.target.value as FilterPriority);
+                setPage(1);
+              }}
+            >
+              <option value="">All</option>
+              <option value="P1">P1</option>
+              <option value="P2">P2</option>
+              <option value="P3">P3</option>
+            </select>
+          </label>
+
+          <label>
+            Search:&nbsp;
+            <input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="title contains..."
+            />
+          </label>
+
           <label>
             Sort By:&nbsp;
             <select
               value={sortBy}
               onChange={(e) => {
                 const v = e.target.value;
-                if (isSortBy(v)) setSortBy(v);
+                if (isSortBy(v)) {
+                  setSortBy(v);
+                  setPage(1);
+                }
               }}
             >
               <option value="updatedUtc">Updated</option>
@@ -145,7 +264,10 @@ export const IncidentsPage: React.FC = () => {
               value={sortDir}
               onChange={(e) => {
                 const v = e.target.value;
-                if (isSortDir(v)) setSortDir(v);
+                if (isSortDir(v)) {
+                  setSortDir(v);
+                  setPage(1);
+                }
               }}
             >
               <option value="desc">Desc</option>
@@ -153,11 +275,16 @@ export const IncidentsPage: React.FC = () => {
             </select>
           </label>
 
-          <span style={{ marginLeft: 'auto' }}>
-            Total: {list.data.total} | Page {list.data.page} / {list.data.totalPages}
+          <span style={{ marginLeft: "auto" }}>
+            Total: {list.data.total} | Page {list.data.page} /{" "}
+            {list.data.totalPages}
+            {list.isFetching ? " (refreshing...)" : ""}
           </span>
 
-          <button disabled={page <= 1 || list.isFetching} onClick={() => setPage((p) => p - 1)}>
+          <button
+            disabled={page <= 1 || list.isFetching}
+            onClick={() => setPage((p) => p - 1)}
+          >
             Prev
           </button>
           <button
@@ -169,8 +296,9 @@ export const IncidentsPage: React.FC = () => {
         </div>
       )}
 
+      {/* TABLE */}
       {list.data && (
-        <table style={{ borderCollapse: 'collapse', marginTop: 8 }}>
+        <table style={{ borderCollapse: "collapse", marginTop: 8 }}>
           <thead>
             <tr>
               <th style={th}>ID</th>
@@ -194,15 +322,23 @@ export const IncidentsPage: React.FC = () => {
                 <td style={td}>
                   <button
                     onClick={() => {
-                      if (window.confirm('Delete this incident?')) del.mutate(x.id);
+                      if (window.confirm("Delete this incident?"))
+                        del.mutate(x.id);
                     }}
                     disabled={del.isPending}
                   >
-                    {del.isPending ? 'Deleting…' : 'Delete'}
+                    {del.isPending ? "Deleting…" : "Delete"}
                   </button>
                 </td>
               </tr>
             ))}
+            {!list.data.items.length && (
+              <tr>
+                <td style={td} colSpan={6}>
+                  No incidents found.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       )}
@@ -210,5 +346,11 @@ export const IncidentsPage: React.FC = () => {
   );
 };
 
-const th: React.CSSProperties = { border: '1px solid #ccc', padding: '6px 10px' };
-const td: React.CSSProperties = { border: '1px solid #ccc', padding: '6px 10px' };
+const th: React.CSSProperties = {
+  border: "1px solid #ccc",
+  padding: "6px 10px",
+};
+const td: React.CSSProperties = {
+  border: "1px solid #ccc",
+  padding: "6px 10px",
+};
