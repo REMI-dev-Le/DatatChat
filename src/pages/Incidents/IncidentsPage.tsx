@@ -47,6 +47,9 @@ export const IncidentsPage: React.FC = () => {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [qMode, setQMode] = useState<"contains" | "prefix" | "exact">(
+    "contains"
+  );
 
   // Debounce search input (300ms)
   useEffect(() => {
@@ -63,6 +66,7 @@ export const IncidentsPage: React.FC = () => {
     filterStatus,
     filterPriority,
     debouncedSearch,
+    qMode,
   ] as const;
 
   const list = useQuery<PagedResult<IncidentDto>, ApiError>({
@@ -76,6 +80,7 @@ export const IncidentsPage: React.FC = () => {
         status: filterStatus || undefined,
         priority: filterPriority || undefined,
         q: debouncedSearch || undefined,
+        qMode,
       }),
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
@@ -272,6 +277,18 @@ export const IncidentsPage: React.FC = () => {
             >
               <option value="desc">Desc</option>
               <option value="asc">Asc</option>
+            </select>
+          </label>
+
+          <label>
+            Mode:&nbsp;
+            <select
+              value={qMode}
+              onChange={(e) => setQMode(e.target.value as "contains" | "prefix" | "exact")}
+            >
+              <option value="contains">Contains</option>
+              <option value="prefix">Prefix</option>
+              <option value="exact">Exact</option>
             </select>
           </label>
 

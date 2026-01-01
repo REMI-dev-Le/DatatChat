@@ -10,6 +10,7 @@ export type IncidentsListParams = {
   status?: 'Open' | 'InProgress' | 'Closed' | '';
   priority?: 'P1' | 'P2' | 'P3' | '';
   q?: string;
+  qMode?: 'contains' | 'prefix' | 'exact';
 };
 
 export const incidentsClient = {
@@ -23,6 +24,7 @@ export const incidentsClient = {
     if (p.status) qs.set('status', p.status);
     if (p.priority) qs.set('priority', p.priority);
     if (p.q?.trim()) qs.set('q', p.q.trim());
+    if (p.qMode) qs.set('qMode', p.qMode);
     return http<PagedResult<IncidentDto>>(`/api/incidents?${qs.toString()}`);
   },
   getById: (id: number) => http<IncidentDto>(`/api/incidents/${id}`),
